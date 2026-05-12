@@ -6,7 +6,7 @@ Un proyecto de dos partes: un curso universitario de electrónica básica y un a
 
 ## La idea central
 
-Una perilla de tono es un filtro RC pasa-bajos. Girarla cambia el valor de un capacitor, lo que desplaza la frecuencia de corte del filtro y modifica el timbre de la guitarra. Este objeto cotidiano contiene, en su interior, los mismos principios que se usan para diseñar filtros de audio, sistemas de comunicación y circuitos de procesamiento de señales.
+Una perilla de tono es un filtro RC pasa-bajos. Es un potenciómetro — girarla cambia el valor de la resistencia (R), lo que desplaza la frecuencia de corte del filtro y modifica el timbre de la guitarra. El capacitor es fijo. Este objeto cotidiano contiene, en su interior, los mismos principios que se usan para diseñar filtros de audio, sistemas de comunicación y circuitos de procesamiento de señales.
 
 El proyecto parte de ahí: usar algo que los estudiantes pueden escuchar y tocar como punto de entrada a la teoría de circuitos.
 
@@ -42,28 +42,6 @@ Para lograrlo, se usa un sistema de analogías físicas. En lugar de definir vol
 
 Estas analogías son deliberadamente imperfectas — son herramientas para construir intuición, no definiciones formales. El objetivo es que cuando el estudiante vea la definición real, ya tenga algo concreto en la cabeza a qué anclarla.
 
-### Las analogías en detalle
-
-**Voltaje como velocidad**
-
-Una pelota viaja desde un punto A (voltaje alto) hasta tierra (0V). La velocidad de la pelota en cada punto del recorrido *es* el voltaje en ese punto. Cuando la pelota pasa por una resistencia — representada como un bloque de aceite viscoso — su velocidad cae linealmente. Dos resistencias en serie forman un divisor: la velocidad total se reparte proporcionalmente entre los dos bloques.
-
-Esta analogía reemplaza a la clásica analogía de la montaña porque la velocidad es directamente observable y no confunde voltaje con energía acumulada.
-
-**El capacitor como bloque elástico**
-
-En un filtro RC, el capacitor ocupa el lugar de una de las resistencias en el divisor. A diferencia de la resistencia (bloque de aceite, longitud fija), el bloque elástico *cambia de longitud* según la frecuencia de la señal:
-
-- Señal lenta (baja frecuencia): la pelota llega despacio, el bloque se comprime mucho, actúa como un bloque muy largo → atenúa la señal
-- Señal rápida (alta frecuencia): la pelota llega y se va antes de que el bloque se comprima significativamente → actúa como bloque corto → la señal pasa
-
-La frecuencia de corte es el punto donde el bloque elástico y el bloque de aceite tienen la misma longitud efectiva. El voltaje se divide al 50% (−3 dB).
-
-**La perilla de tono**
-
-Girar la perilla cambia el valor de C, lo que cambia la longitud "natural" del bloque elástico y desplaza la frecuencia de corte. Posición oscura → C grande → fc baja → se atenúan los agudos. Posición brillante → C pequeño → fc alta → pasan más agudos.
-
----
 
 ## Parte 2 — El FRA
 
