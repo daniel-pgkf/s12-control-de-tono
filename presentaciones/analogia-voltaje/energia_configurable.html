@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Modelo energético — configurable</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0d0d1a;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: monospace;
+      color: #aaa;
+    }
+    canvas { display: block; }
+    #hint { margin-top: 14px; font-size: 12px; opacity: 0.45; letter-spacing: 0.05em; }
+  </style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+<script>
+
+// ════════════════════════════════════════════════════════════════
+//  CONFIGURACIÓN — los dos únicos parámetros que necesitás tocar
+// ════════════════════════════════════════════════════════════════
+//
+//  MODELO FÍSICO:
+//  La pelota entra al bloque de aceite y pierde velocidad de forma
+//  lineal. Se detiene cuando recorrió E_BOLA píxeles dentro del bloque.
+//  El bloque tiene GROSOR píxeles de ancho.
+//
+//  CONDICIÓN DE CRUCE (simple):
+//    E_BOLA > GROSOR  →  la bola atraviesa el bloque
+//    E_BOLA < GROSOR  →  la bola se detiene adentro
+//    E_BOLA = GROSOR  →  la bola llega justo al borde y para
+//
+//  Ejemplos:
+//    E_BOLA=250, GROSOR=200  →  250 > 200  →  ATRAVIESA (le sobra energía)
+//    E_BOLA=150, GROSOR=200  →  150 < 200  →  SE DETIENE a las 3/4 del bloque
+//    E_BOLA=200, GROSOR=200  →  200 = 200  →  LLEGA JUSTO al otro lado
+//
+// ────────────────────────────────────────────────────────────────
+
+const CONFIG = {
+
+  // ── Energía de la pelota ──────────────────────────────────────
+  // Cuántos píxeles puede recorrer la bola dentro del aceite antes
+  // de detenerse completamente (si el bloque fuera infinito).
+  // Más alto = más energía cinética = más difícil de frenar.
+  // Rango útil: 50 – 400 px
+  E_BOLA: 250,
+
+  // ── Grosor del bloque de aceite ───────────────────────────────
+  // Ancho del bloque en píxeles. Visualmente cambia el tamaño del
+  // bloque. Determina cuánta energía se necesita para cruzarlo.
+  // Más grosor = más resistencia = necesita más E_BOLA para pasar.
+  // Rango útil: 50 – 400 px
+  GROSOR: 200,
+
+  // ════════════════════════════════════════════════════════════
+  //  Aspecto visual del fluido — ajustá si querés cambiar cómo
+  //  se ve la perturbación, no afecta la física de la pelota
+  // ════════════════════════════════════════════════════════════
+
+  // Rigidez del resorte de retorno al equilibrio.
+  // Más alto = partículas vuelven más rápido a su lugar.
+  // Rango útil: 0.02 – 0.10
+  K_SPRING: 0.04,
+
+  // Acoplamiento entre partículas vecinas.
+  // Controla qué tan lejos llegan las ondas de perturbación.
+  // Más alto = ondas más grandes y que llegan más lejos.
+  // Rango útil: 0.01 – 0.06
+  K_NEIGHBOR: 0.03,
+
+  // Amortiguación por frame (entre 0 y 1).
+  // Más alto = el fluido oscila durante más tiempo antes de calmarse.
+  // Rango útil: 0.88 – 0.97
+  F_DAMPING: 0.93,
+
+  // Radio de influencia de la bola sobre las partículas (px).
+  // Rango útil: 25 – 80
+  PUSH_R: 25,
+
+  // Fuerza de empuje máxima de la bola sobre las partículas.
+  // Rango útil: 8 – 30
+  PUSH_F: 18,
+};
+
+// ════════════════════════════════════════════════════════════════
+//  SKETCH — no necesitás tocar nada de acá para abajo
+// ════════════════════════════════════════════════════════════════
+
+new p5(function(p) {
+
+  // ── Canvas ───────────────────────────────────────────────────
+  const W = 750;
+  const H = 320;
+
+  // ── Pelota ───────────────────────────────────────────────────
+  const BALL_R     = 16;
+  const BALL_Y     = H / 2 + 10;
+
+  // Velocidad visual inicial — fija. La cantidad de energía no
+  // cambia qué tan rápido empieza la bola, sino cuánto aguanta.
+  // DRAG se deriva de V0 y E_BOLA para que la bola pare exactamente
+  // a los E_BOLA píxeles: DRAG = V0² / (2 × E_BOLA)
+  const V0_VISUAL  = 5;
+
+  // ── Bloque de aceite ─────────────────────────────────────────
+  // OIL_X: borde izquierdo fijo. OIL_W se toma de CONFIG.GROSOR.
+  const OIL_X      = 250;
+  const OIL_TOP    = 80;
+  const OIL_BOT    = H - 60;
+
+  // ── Fluido: separación fija entre partículas ─────────────────
+  // F_COLS y F_ROWS se calculan en initFluid() según el GROSOR actual.
+  const F_SPACING  = 11;
+
+  // ── Estado ───────────────────────────────────────────────────
+  let ball       = {};
+  let trail      = [];
+  let phase      = 'before';   // 'before' | 'inside' | 'after' | 'stopped'
+  let stopTimer  = 0;
+  let traveled   = 0;          // px recorridos dentro del aceite
+
+  let fParticles = [];
+  let fGrid      = [];
+  let fCols      = 0;          // columnas de partículas (depende de GROSOR)
+  let fRows      = 0;          // filas de partículas (depende de altura del bloque)
+
+  // DRAG derivado: la bola para exactamente a los E_BOLA px.
+  // Con desaceleración constante: stop_dist ≈ V0² / (2×DRAG)
+  // → DRAG = V0² / (2×E_BOLA)
+  let DRAG = 0;
+
+  // ════════════════════════════════════════════════════════════
+  //  SETUP Y LOOP PRINCIPAL
+  // ════════════════════════════════════════════════════════════
+
+  p.setup = function() {
+    p.createCanvas(W, H).parent(document.body);
+    reset();
+  };
+
+  p.draw = function() {
+    p.background(13, 13, 26);
+    drawOilBackground();
+    drawZoneLabels();
+    updateBall();
+    updateFluid();
+    drawTrail();
+    drawFluid();
+    drawBall();
+    drawEnergyBar();
+    if (phase === 'stopped') drawStoppedLabel();
+  };
+
+  p.mousePressed = function() { reset(); };
+
+  // ════════════════════════════════════════════════════════════
+  //  INICIALIZACIÓN
+  // ════════════════════════════════════════════════════════════
+
+  function reset() {
+    // Derivar DRAG de E_BOLA para que la bola frene en exactamente
+    // E_BOLA píxeles de recorrido dentro del aceite.
+    DRAG = (V0_VISUAL * V0_VISUAL) / (2 * CONFIG.E_BOLA);
+
+    ball      = { x: 40, v: V0_VISUAL };
+    trail     = [];
+    phase     = 'before';
+    stopTimer = 0;
+    traveled  = 0;
+    initFluid();
+  }
+
+  // Crea la grilla de partículas adaptada al GROSOR actual.
+  // Más GROSOR → más columnas de partículas.
+  function initFluid() {
+    fParticles = [];
+    fGrid      = [];
+
+    // Calcular columnas y filas según el tamaño del bloque
+    fCols = Math.max(2, Math.floor(CONFIG.GROSOR / F_SPACING) + 1);
+    fRows = Math.floor((OIL_BOT - OIL_TOP) / F_SPACING) + 1;
+
+    // Centrar la grilla dentro del bloque
+    let ox = OIL_X   + (CONFIG.GROSOR          - (fCols - 1) * F_SPACING) / 2;
+    let oy = OIL_TOP + ((OIL_BOT - OIL_TOP)    - (fRows - 1) * F_SPACING) / 2;
+
+    for (let r = 0; r < fRows; r++) {
+      fGrid[r] = [];
+      for (let c = 0; c < fCols; c++) {
+        let rx = ox + c * F_SPACING;
+        let ry = oy + r * F_SPACING;
+        let pt = { x: rx, y: ry, rx: rx, ry: ry, vx: 0, vy: 0 };
+        fGrid[r][c] = pt;
+        fParticles.push(pt);
+      }
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════
+  //  FÍSICA DE LA PELOTA
+  // ════════════════════════════════════════════════════════════
+  //
+  //  Fuera del bloque: velocidad constante (V0_VISUAL).
+  //  Dentro del bloque: desaceleración constante = DRAG.
+  //  La bola para cuando velocity = 0, lo que ocurre exactamente
+  //  a los E_BOLA píxeles de recorrido dentro del aceite.
+
+  function updateBall() {
+    let oilRight = OIL_X + CONFIG.GROSOR;
+
+    if (ball.x >= OIL_X     && phase === 'before') phase = 'inside';
+    if (ball.x >= oilRight  && phase === 'inside') phase = 'after';
+
+    if (phase === 'inside') {
+      ball.v = Math.max(0, ball.v - DRAG);
+      traveled += ball.v;
+      if (ball.v === 0) phase = 'stopped';
+    }
+
+    if (phase !== 'stopped') {
+      ball.x += ball.v;
+      trail.push({ x: ball.x });
+      if (trail.length > 35) trail.shift();
+    } else {
+      stopTimer++;
+      if (stopTimer > 150) reset();
+    }
+
+    if (ball.x > W + BALL_R + 20) reset();
+  }
+
+  // ════════════════════════════════════════════════════════════
+  //  FÍSICA DEL FLUIDO (lattice de resortes)
+  // ════════════════════════════════════════════════════════════
+  //
+  //  Cada partícula recibe tres fuerzas:
+  //
+  //  1. RESORTE DE RETORNO (-K_SPRING × desplazamiento_desde_reposo)
+  //     Jala la partícula hacia su posición de equilibrio.
+  //
+  //  2. RESORTE DE VECINDAD (-K_NEIGHBOR × elongación_con_vecino)
+  //     Propaga las perturbaciones como ondas a través del bloque.
+  //     Sin este término, solo se mueven las partículas que la bola
+  //     toca directamente.
+  //
+  //  3. EMPUJE DE LA BOLA (radial, dentro de PUSH_R)
+  //     La fuerza crece cuanto más cerca está la partícula del
+  //     centro de la bola, y es cero en el borde del radio.
+
+  function updateFluid() {
+    for (let r = 0; r < fRows; r++) {
+      for (let c = 0; c < fCols; c++) {
+        let pt = fGrid[r][c];
+        let fx = 0, fy = 0;
+
+        // Fuerza 1: resorte de retorno
+        fx -= CONFIG.K_SPRING * (pt.x - pt.rx);
+        fy -= CONFIG.K_SPRING * (pt.y - pt.ry);
+
+        // Fuerza 2: acoplamiento con vecinos (4-conectado)
+        const vecinos = [[r-1,c], [r+1,c], [r,c-1], [r,c+1]];
+        for (let [nr, nc] of vecinos) {
+          if (nr < 0 || nr >= fRows || nc < 0 || nc >= fCols) continue;
+          let nb = fGrid[nr][nc];
+          fx -= CONFIG.K_NEIGHBOR * ((pt.x - nb.x) - (pt.rx - nb.rx));
+          fy -= CONFIG.K_NEIGHBOR * ((pt.y - nb.y) - (pt.ry - nb.ry));
+        }
+
+        // Fuerza 3: empuje radial desde la bola
+        let dx   = pt.x - ball.x;
+        let dy   = pt.y - BALL_Y;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < CONFIG.PUSH_R && dist > 0.1) {
+          let mag = CONFIG.PUSH_F * Math.pow(1 - dist / CONFIG.PUSH_R, 1.5);
+          fx += (dx / dist) * mag;
+          fy += (dy / dist) * mag;
+        }
+
+        // Integración symplética: primero velocidad, luego posición
+        pt.vx = (pt.vx + fx) * CONFIG.F_DAMPING;
+        pt.vy = (pt.vy + fy) * CONFIG.F_DAMPING;
+        pt.x += pt.vx;
+        pt.y += pt.vy;
+      }
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════
+  //  RENDER
+  // ════════════════════════════════════════════════════════════
+
+  function drawOilBackground() {
+    let oilW = CONFIG.GROSOR;
+    p.noStroke();
+    p.fill(120, 85, 10, 25);
+    p.rect(OIL_X, OIL_TOP, oilW, OIL_BOT - OIL_TOP);
+    p.stroke(200, 160, 50, 70);
+    p.strokeWeight(1.5);
+    p.noFill();
+    p.rect(OIL_X, OIL_TOP, oilW, OIL_BOT - OIL_TOP, 3);
+    p.noStroke();
+    p.fill(200, 160, 50, 130);
+    p.textAlign(p.CENTER);
+    p.textSize(11);
+    p.text('aceite', OIL_X + oilW / 2, OIL_TOP - 10);
+  }
+
+  function drawZoneLabels() {
+    let oilW   = CONFIG.GROSOR;
+    let oilRight = OIL_X + oilW;
+    p.textAlign(p.CENTER);
+    p.textSize(13);
+    p.noStroke();
+
+    p.fill(120, 200, 255, 180);
+    p.text('A', OIL_X / 2, OIL_TOP - 10);
+
+    let bAlpha = (phase === 'stopped') ? 60 : 180;
+    p.fill(120, 200, 255, bAlpha);
+    p.text('B', oilRight + (W - oilRight) / 2, OIL_TOP - 10);
+
+    p.stroke(80, 80, 120, 50);
+    p.strokeWeight(1);
+    p.line(OIL_X,     OIL_TOP - 30, OIL_X,     OIL_BOT + 20);
+    p.line(oilRight,  OIL_TOP - 30, oilRight,   OIL_BOT + 20);
+  }
+
+  function drawTrail() {
+    p.noStroke();
+    for (let i = 0; i < trail.length; i++) {
+      let alpha = p.map(i, 0, trail.length, 0, 50);
+      let r2    = p.map(i, 0, trail.length, 2, BALL_R * 0.7);
+      p.fill(255, 120, 50, alpha);
+      p.circle(trail[i].x, BALL_Y, r2 * 2);
+    }
+  }
+
+  // Color ámbar en reposo → amarillo brillante cuando perturbada
+  function drawFluid() {
+    p.noStroke();
+    for (let pt of fParticles) {
+      let disp = Math.sqrt((pt.x - pt.rx) ** 2 + (pt.y - pt.ry) ** 2);
+      let t    = Math.min(disp / 14, 1);
+      let r = p.lerp(200, 255, t);
+      let g = p.lerp(140, 220, t);
+      let b = p.lerp(30,  90,  t);
+      let a = p.lerp(150, 255, t);
+      if (t > 0.25) {
+        p.fill(r, g, b, a * 0.18);
+        p.circle(pt.x, pt.y, 14);
+      }
+      p.fill(r, g, b, a);
+      p.circle(pt.x, pt.y, p.lerp(4.5, 7, t));
+    }
+  }
+
+  function drawBall() {
+    p.noStroke();
+    if (phase === 'stopped') {
+      let pulse = 0.5 + 0.5 * Math.sin(p.frameCount * 0.06);
+      p.fill(200, 60, 30, 20 + pulse * 20);
+      p.circle(ball.x, BALL_Y, BALL_R * 4.5);
+    } else {
+      p.fill(255, 100, 40, 25);
+      p.circle(ball.x, BALL_Y, BALL_R * 3.5);
+    }
+    let bright = phase === 'stopped' ? 160 : 255;
+    p.fill(bright, 75, 35);
+    p.circle(ball.x, BALL_Y, BALL_R * 2);
+    p.fill(255, 200, 150, phase === 'stopped' ? 80 : 200);
+    p.circle(ball.x - BALL_R * 0.28, BALL_Y - BALL_R * 0.28, BALL_R * 0.55);
+  }
+
+  // Barra de energía: muestra qué fracción de E_BOLA le queda a la bola.
+  // Llena = energía completa. Vacía = bola detenida.
+  function drawEnergyBar() {
+    let barW  = 160, barH = 8;
+    let barX  = W / 2 - barW / 2;
+    let barY  = H - 28;
+    // Energía restante = fracción del recorrido máximo aún no consumido
+    let ratio = Math.max(0, 1 - traveled / CONFIG.E_BOLA);
+
+    p.noStroke();
+    p.fill(40, 40, 60);
+    p.rect(barX, barY, barW, barH, 4);
+
+    let r = p.lerp(60,  255, 1 - ratio);
+    let g = p.lerp(220, 80,  1 - ratio);
+    p.fill(r, g, 60);
+    p.rect(barX, barY, barW * ratio, barH, 4);
+
+    p.fill(160, 160, 180);
+    p.textAlign(p.CENTER);
+    p.textSize(10);
+    p.text('energía restante', W / 2, barY - 5);
+  }
+
+  function drawStoppedLabel() {
+    let alpha = Math.min(255, (stopTimer - 10) * 8);
+    p.noStroke();
+    p.fill(255, 80, 60, alpha);
+    p.textAlign(p.CENTER);
+    p.textSize(12);
+    p.text('sin energía suficiente', ball.x, BALL_Y - BALL_R - 14);
+  }
+
+});
+</script>
+<div id="hint">click para reiniciar</div>
+</body>
+</html>
