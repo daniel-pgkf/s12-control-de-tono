@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Player — Curso Filtros RC</title>
+  <style>
+    /* Los colores salen de paleta.json; si cambias allá, cambia aquí. */
+    :root {
+      --fondo: #0d0d1a;
+      --fondo-suave: #141426;
+      --texto: #aaaaaa;
+      --texto-tenue: #6a6a80;
+      --acento: #ff5528;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--fondo);
+      color: var(--texto);
+      font-family: monospace;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Escenario 16:9 centrado: clips y sketches comparten el mismo marco,
+       así el corte entre uno y otro no mueve nada en pantalla. */
+    #stage {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    /* Una capa por escena. Son absolutas para que la saliente y la entrante
+       se superpongan durante el fundido; sin esto el flex de #stage las
+       pondría una al lado de la otra. Cada capa centra su propio contenido. */
+    .capa {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity var(--fundido, 320ms) ease;
+    }
+    .clip { max-width: 100%; max-height: 100%; display: block; }
+    /* Tamaño lógico fijo: el flex de #stage la centra y ajustarEscala() le
+       aplica el zoom. flex-shrink:0 evita que el flex la deforme. */
+    .caja-sketch { flex: 0 0 auto; }
+    canvas { display: block; }
+
+    .error {
+      color: var(--acento);
+      text-align: center;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .error code { color: var(--texto); }
+
+    #barra-inferior {
+      padding: 10px 18px 14px;
+      background: var(--fondo-suave);
+      border-top: 1px solid #22223a;
+    }
+    #fila { display: flex; align-items: baseline; gap: 14px; }
+    #titulo { font-size: 13px; color: var(--texto); flex: 1; }
+    #contador { font-size: 11px; color: var(--texto-tenue); }
+    #ayuda { font-size: 10px; color: var(--texto-tenue); letter-spacing: .04em; }
+    #build { font-size: 9px; color: var(--texto-tenue); opacity: .5; }
+    #nota {
+      display: none;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--acento);
+      opacity: .85;
+    }
+    #pista-progreso { height: 2px; background: #22223a; margin-top: 10px; }
+    #progreso { height: 100%; background: var(--acento); width: 0; transition: width .2s; }
+  </style>
+</head>
+<body>
+
+  <div id="stage"></div>
+
+  <div id="barra-inferior">
+    <div id="fila">
+      <span id="titulo"></span>
+      <span id="contador"></span>
+      <span id="ayuda">ESPACIO avanzar · ← atrás · R reiniciar · N nota · F pantalla completa</span>
+      <!-- Hora de carga: si no cambia al recargar, estás viendo una copia en caché. -->
+      <span id="build"></span>
+    </div>
+    <div id="nota"></div>
+    <div id="pista-progreso"><div id="progreso"></div></div>
+  </div>
+
+  <!-- p5 es la única dependencia que se deja cachear: son 1 MB y nunca cambia. -->
+  <script src="vendor/p5.min.js"></script>
+
+  <script>
+    // Los archivos del proyecto se cargan con un token anticaché.
+    //
+    // Por qué: un browser que ya tenía estos .js guardados de una sesión
+    // anterior los reutiliza sin preguntarle al servidor, así que editarlos no
+    // surte efecto y parece un bug en el sketch. Ya pasó una vez. Con el token
+    // cada carga pide una URL nueva y la caché queda descartada por definición.
+    //
+    // Al agregar un sketch nuevo, súmalo a esta lista (y a avance-rapido.html).
+    const MODULOS = [
+      '../sketches/registro.js',
+      '../sketches/resistencias.js',   // biblioteca compartida
+
+      // Sketches disponibles
+      '../sketches/fluido_pelota.js',
+      '../sketches/energia_pasa.js',
+      '../sketches/energia_frena.js',
+      '../sketches/energia_configurable.js',
+      '../sketches/comparativa_energia.js',
+      '../sketches/canon_parabolico.js',
+      '../sketches/zonas_voltaje.js',
+      '../sketches/disparo_lineal.js',
+      '../sketches/divisor_voltaje.js',
+
+      'guion.js',
+      'player.js',
+    ];
+
+    window.PLAYER_BUILD = Date.now();
+    for (const src of MODULOS) {
+      const s = document.createElement('script');
+      s.src = `${src}?v=${window.PLAYER_BUILD}`;
+      s.async = false;   // conserva el orden de ejecución
+      document.head.appendChild(s);
+    }
+  </script>
+</body>
+</html>

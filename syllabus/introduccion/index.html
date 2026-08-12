@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reproductor con filtros de primer orden</title>
+<style>
+  :root{
+    --bg:#0d0d1a; --panel:#141420; --panel2:#1a1a2c; --linea:#252540;
+    --azul:#4a9eff; --verde:#4ecb71; --ambar:#f0a020; --rojo:#ff6060;
+    --violeta:#b060e0; --txt:#e0e0e8; --txt2:#8890a8; --txt3:#556;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--txt);
+    font-family:'Segoe UI',system-ui,sans-serif; font-size:14px;
+    display:flex; flex-direction:column; min-height:100vh; padding:16px; gap:12px;
+  }
+  h1{font-size:16px; font-weight:600; color:var(--azul); margin:0}
+  .sub{color:var(--txt2); font-size:12px; font-weight:400}
+  .panel{background:var(--panel); border:1px solid var(--linea); border-radius:10px; padding:14px}
+
+  button{font-family:inherit; font-size:13px; color:var(--txt); background:var(--panel2);
+    border:1px solid var(--linea); border-radius:8px; padding:8px 14px; cursor:pointer; transition:.12s}
+  button:hover{border-color:var(--azul); color:#fff}
+  button:disabled{opacity:.4; cursor:default}
+  button:disabled:hover{border-color:var(--linea); color:var(--txt)}
+
+  /* ── transporte ── */
+  #barra{display:flex; align-items:center; gap:14px; flex-wrap:wrap}
+  #play{min-width:52px; font-size:16px}
+  .drop{border:1px dashed var(--txt3); border-radius:8px; padding:8px 14px; color:var(--txt2);
+    cursor:pointer; transition:.12s; white-space:nowrap}
+  .drop:hover,.drop.hover{border-color:var(--verde); color:var(--verde); background:#4ecb7112}
+  #tiempo{font-variant-numeric:tabular-nums; color:var(--txt2); font-size:12px; min-width:88px}
+  input[type=range]{-webkit-appearance:none; appearance:none; height:4px; border-radius:2px;
+    background:var(--linea); outline:none; cursor:pointer}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:14px; height:14px;
+    border-radius:50%; background:var(--azul); cursor:pointer}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border:none;border-radius:50%;background:var(--azul);cursor:pointer}
+  #seek{flex:1; min-width:120px}
+  .vol{display:flex; align-items:center; gap:6px; color:var(--txt2); font-size:12px}
+  .vol input{width:90px}
+  .yscale{display:flex; align-items:center; gap:8px; margin-left:auto; color:var(--txt2); font-size:12px}
+
+  /* ── switch genérico ── */
+  .sw{position:relative; width:46px; height:24px; border-radius:12px; background:var(--linea);
+    cursor:pointer; transition:.15s; flex:none}
+  .sw.on{background:var(--verde)}
+  .sw::after{content:''; position:absolute; top:2px; left:2px; width:20px; height:20px;
+    border-radius:50%; background:#fff; transition:.15s}
+  .sw.on::after{left:24px}
+  .swlbl{font-size:12px; font-weight:600; letter-spacing:.03em}
+
+  /* ── gráficas (redimensionables) ── */
+  .graf{position:relative; padding-bottom:9px}
+  .graf .tit{position:absolute; top:8px; left:12px; font-size:11px; color:var(--txt2);
+    letter-spacing:.04em; pointer-events:none; z-index:2}
+  .graf .leg{position:absolute; top:6px; right:12px; z-index:3; display:flex; gap:10px}
+  .lgt{background:transparent; border:none; padding:2px 3px; font-size:11px; cursor:pointer;
+    transition:.12s; border-radius:4px}
+  .lgt.in{color:var(--txt3)} .lgt.out{color:var(--verde)} .lgt.avg{color:var(--ambar)}
+  .lgt.off{opacity:.32; text-decoration:line-through}
+  .lgt:hover{background:#ffffff10}
+  .mini{position:absolute; top:5px; left:96px; z-index:3; padding:3px 10px; font-size:11px}
+  .mini.on{border-color:var(--ambar); color:var(--ambar)}
+  canvas{display:block; width:100%; height:240px; border-radius:8px}
+  #bode{height:190px}
+  .rz{height:9px; margin-top:2px; border-radius:5px; cursor:ns-resize; background:var(--linea);
+    display:flex; align-items:center; justify-content:center; transition:.12s}
+  .rz:hover{background:var(--azul)}
+  .rz::after{content:''; width:34px; height:3px; border-radius:2px; background:var(--txt3)}
+  .rz:hover::after{background:#fff}
+  .foot{color:var(--txt3); font-size:11px; text-align:center; margin-top:6px}
+
+  /* ── rack de filtros (abajo) ── */
+  #rackhdr{display:flex; align-items:center; gap:14px; margin-bottom:10px; flex-wrap:wrap}
+  #rack{display:flex; gap:10px; flex-wrap:wrap; align-items:stretch}
+  .vacio{color:var(--txt3); font-size:12px; font-style:italic; padding:6px 0}
+  .filtro{background:var(--panel2); border:1px solid var(--linea); border-left-width:3px;
+    border-radius:8px; padding:11px 12px; width:210px; display:flex; flex-direction:column; gap:9px}
+  .filtro.HP{border-left-color:var(--azul)}
+  .filtro.LP{border-left-color:var(--ambar)}
+  .frow{display:flex; align-items:center; justify-content:space-between; gap:8px}
+  .seg{display:flex; border:1px solid var(--linea); border-radius:6px; overflow:hidden}
+  .seg button{border:none; border-radius:0; padding:4px 10px; font-size:12px; background:transparent}
+  .seg button.sel{background:var(--azul); color:#fff}
+  .filtro.LP .seg button.sel{background:var(--ambar); color:#1a1a10}
+  .quitar{border:none; background:transparent; color:var(--txt3); font-size:16px; padding:0 4px; cursor:pointer}
+  .quitar:hover{color:var(--rojo)}
+  .fcval input{width:64px; background:var(--panel); border:1px solid var(--linea); border-radius:5px;
+    color:var(--txt); font-family:inherit; font-size:13px; text-align:right; padding:3px 5px}
+  .flbl{color:var(--txt2); font-size:11px}
+</style>
+</head>
+<body>
+
+<div><h1>Reproductor con filtros de primer orden
+  <span class="sub">— encadená pasa-altas y pasa-bajas · demo RC del curso</span></h1></div>
+
+<!-- ── transporte ── -->
+<div class="panel" id="barra">
+  <label class="drop" id="drop">📂 Cargar mp3<input type="file" id="file" accept="audio/mpeg,.mp3" hidden></label>
+  <button id="play" disabled>▶</button>
+  <span id="tiempo">0:00 / 0:00</span>
+  <input type="range" id="seek" min="0" max="1000" value="0" disabled>
+  <span class="vol">🔊<input type="range" id="vol" min="0" max="100" value="90"></span>
+  <div class="yscale">Eje Y:<button id="ytog" class="mini" style="position:static">dB (log)</button></div>
+</div>
+
+<!-- ── espectro ── -->
+<div class="panel graf">
+  <span class="tit">ESPECTRO</span>
+  <button id="avg" class="mini">Promedio entrada</button>
+  <span class="leg">
+    <button class="lgt in"  data-c="in">▉ entrada</button>
+    <button class="lgt out" data-c="out">▉ salida</button>
+    <button class="lgt avg" data-c="avg">▬ promedio</button>
+  </span>
+  <canvas id="spec"></canvas>
+  <div class="rz" data-for="spec" title="arrastrar para cambiar el alto"></div>
+</div>
+
+<!-- ── bode ── -->
+<div class="panel graf">
+  <span class="tit">RESPUESTA DEL FILTRO |H(f)|</span>
+  <canvas id="bode"></canvas>
+  <div class="rz" data-for="bode" title="arrastrar para cambiar el alto"></div>
+  <div class="foot">mismo eje de frecuencia que el espectro — arriba el efecto, acá abajo la causa</div>
+</div>
+
+<!-- ── filtros (abajo) ── -->
+<div class="panel">
+  <div id="rackhdr">
+    <button id="add">＋ Añadir filtro</button>
+    <div style="display:flex;align-items:center;gap:9px">
+      <span class="swlbl" id="swtxt">FILTROS ON</span>
+      <div class="sw on" id="sw" title="Activar/desactivar toda la cadena"></div>
+    </div>
+    <span class="sub">el orden no cambia el sonido — HP + LP = pasa-banda</span>
+  </div>
+  <div id="rack"><span class="vacio">Sin filtros — el audio pasa sin tocar. Añadí uno para empezar.</span></div>
+</div>
+
+<script>
+"use strict";
+let FS=48000;   // se ajusta a ctx.sampleRate real al crear el AudioContext
+const FMIN=20, FMAX=20000;
+const L20=Math.log10(FMIN), LSPAN=Math.log10(FMAX)-L20;
+
+// ── estado ──
+let ctx=null, src=null, anIn=null, anOut=null, objURL=null;
+let filtros=[], bypass=false;
+let specBuf=null, inBuf=null, avgOn=false, avgPow=null, avgDbBuf=null, avgN=0;
+let yMode='db';           // 'db' | 'lin'  → escala del eje Y
+let showCurves={in:true, out:true, avg:true};   // visibilidad de cada curva
+let specPeak=1e-4;        // máximo HISTÓRICO del espectro (solo crece) = 100% en lineal
+
+const audio=new Audio(); audio.preload='metadata';
+
+// ── coeficientes de primer orden (bilineal) — verificados con scipy ──
+function coefs(type, fc){
+  const K=Math.tan(Math.PI*fc/FS);
+  const ff=(type==='LP')?[K/(K+1),K/(K+1)]:[1/(K+1),-1/(K+1)];
+  const fb=[1,(K-1)/(K+1)];
+  return {ff,fb};
+}
+function magDb(f){
+  if(bypass || !filtros.length) return 0;
+  const w=2*Math.PI*f/FS, cw=Math.cos(w), sw=Math.sin(w);
+  let db=0;
+  for(const flt of filtros){
+    const {ff,fb}=coefs(flt.type,flt.fc);
+    const nr=ff[0]+ff[1]*cw, ni=-ff[1]*sw, dr=fb[0]+fb[1]*cw, di=-fb[1]*sw;
+    db += 20*Math.log10(Math.hypot(nr,ni)/Math.hypot(dr,di) + 1e-12);
+  }
+  return db;
+}
+
+// ── audio graph ──
+function initAudio(){
+  if(ctx) return;
+  ctx=new (window.AudioContext||window.webkitAudioContext)();
+  FS=ctx.sampleRate;                             // tasa real del sistema (44.1 o 48 kHz)
+  src=ctx.createMediaElementSource(audio);       // UNA sola vez
+  anIn =ctx.createAnalyser(); anIn.fftSize =4096; anIn.smoothingTimeConstant =0.8;
+  anOut=ctx.createAnalyser(); anOut.fftSize=4096; anOut.smoothingTimeConstant=0.8;
+  specBuf =new Float32Array(anOut.frequencyBinCount);
+  inBuf   =new Float32Array(anIn.frequencyBinCount);
+  avgPow  =new Float32Array(anIn.frequencyBinCount);
+  avgDbBuf=new Float32Array(anIn.frequencyBinCount);
+  rebuildGraph();
+}
+function rebuildGraph(){
+  if(!ctx) return;
+  try{src.disconnect();}catch(e){}
+  filtros.forEach(f=>{try{f.node.disconnect();}catch(e){}});
+  try{anIn.disconnect();}catch(e){} try{anOut.disconnect();}catch(e){}
+  src.connect(anIn);
+  let tail=anIn;
+  if(!bypass) for(const f of filtros){ tail.connect(f.node); tail=f.node; }
+  tail.connect(anOut);
+  anOut.connect(ctx.destination);
+}
+function makeNode(flt){
+  const {ff,fb}=coefs(flt.type,flt.fc);
+  flt.node=new IIRFilterNode(ctx,{feedforward:ff, feedback:fb});
+}
+
+// ── slider (0..1000) ↔ frecuencia log ──
+function sliderToFreq(v){ return FMIN*Math.pow(FMAX/FMIN, v/1000); }
+function freqToSlider(f){ return 1000*Math.log10(f/FMIN)/LSPAN; }
+function clampF(f){ return Math.max(FMIN, Math.min(FMAX, f||FMIN)); }
+
+// ── rack UI ──
+const rack=document.getElementById('rack');
+function renderRack(){
+  rack.innerHTML='';
+  if(!filtros.length){ rack.innerHTML='<span class="vacio">Sin filtros — el audio pasa sin tocar. Añadí uno para empezar.</span>'; return; }
+  filtros.forEach((flt,i)=>{
+    const card=document.createElement('div');
+    card.className='filtro '+flt.type;
+    card.innerHTML=`
+      <div class="frow">
+        <div class="seg">
+          <button data-t="HP" class="${flt.type==='HP'?'sel':''}">Pasa-altas</button>
+          <button data-t="LP" class="${flt.type==='LP'?'sel':''}">Pasa-bajas</button>
+        </div>
+        <button class="quitar" title="quitar">✕</button>
+      </div>
+      <div class="frow">
+        <span class="flbl">fc</span>
+        <span class="fcval"><input type="number" min="20" max="20000" step="1" value="${Math.round(flt.fc)}"> Hz</span>
+      </div>
+      <input type="range" class="fcsl" min="0" max="1000" value="${freqToSlider(flt.fc)}">`;
+    card.querySelectorAll('.seg button').forEach(b=>{
+      b.onclick=()=>{ flt.type=b.dataset.t; makeNode(flt); rebuildGraph(); renderRack(); drawBode(); };
+    });
+    card.querySelector('.quitar').onclick=()=>{ filtros.splice(i,1); rebuildGraph(); renderRack(); drawBode(); };
+    const sl=card.querySelector('.fcsl'), num=card.querySelector('input[type=number]');
+    sl.oninput =()=>{ flt.fc=clampF(sliderToFreq(+sl.value)); num.value=Math.round(flt.fc); makeNode(flt); rebuildGraph(); drawBode(); };
+    num.onchange=()=>{ flt.fc=clampF(+num.value); sl.value=freqToSlider(flt.fc); makeNode(flt); rebuildGraph(); drawBode(); };
+    rack.appendChild(card);
+  });
+}
+document.getElementById('add').onclick=()=>{
+  initAudio();
+  const flt={type:'LP', fc:1000}; makeNode(flt); filtros.push(flt);
+  rebuildGraph(); renderRack(); drawBode();
+};
+
+// ── switch bypass ──
+const sw=document.getElementById('sw'), swtxt=document.getElementById('swtxt');
+sw.onclick=()=>{ bypass=!bypass; sw.classList.toggle('on',!bypass);
+  swtxt.textContent=bypass?'FILTROS OFF':'FILTROS ON'; rebuildGraph(); drawBode(); };
+
+// ── promedio (LTAS) ──
+const avgBtn=document.getElementById('avg');
+avgBtn.onclick=()=>{ initAudio(); avgOn=!avgOn; if(avgOn){avgPow.fill(0); avgN=0;}
+  avgBtn.classList.toggle('on',avgOn); avgBtn.textContent=avgOn?'■ Promediando…':'Promedio entrada'; };
+
+// ── toggle escala Y ──
+const ytog=document.getElementById('ytog');
+ytog.onclick=()=>{ yMode=(yMode==='db')?'lin':'db';
+  ytog.textContent=(yMode==='db')?'dB (log)':'lineal'; ytog.classList.toggle('on',yMode==='lin'); drawBode(); };
+
+// ── toggles de cada curva del espectro ──
+document.querySelectorAll('.lgt').forEach(b=>{
+  b.onclick=()=>{ const c=b.dataset.c; showCurves[c]=!showCurves[c]; b.classList.toggle('off',!showCurves[c]); };
+});
+
+// ── carga de archivo ──
+const fileInput=document.getElementById('file'), drop=document.getElementById('drop');
+fileInput.onchange=e=>{ if(e.target.files[0]) cargar(e.target.files[0]); };
+['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault(); drop.classList.add('hover');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault(); drop.classList.remove('hover');}));
+drop.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) cargar(f); });
+function cargar(file){
+  initAudio();
+  if(objURL) URL.revokeObjectURL(objURL);
+  objURL=URL.createObjectURL(file); audio.src=objURL;
+  drop.textContent='📂 '+(file.name.length>22?file.name.slice(0,20)+'…':file.name);
+  playBtn.disabled=false; seek.disabled=false;
+  specPeak=1e-4;   // reinicia el máximo histórico para el nuevo archivo
+}
+
+// ── transporte ──
+const playBtn=document.getElementById('play'), seek=document.getElementById('seek'),
+      tiempo=document.getElementById('tiempo'), vol=document.getElementById('vol');
+playBtn.onclick=()=>{ if(!audio.src) return; if(ctx&&ctx.state==='suspended') ctx.resume();
+  if(audio.paused) audio.play(); else audio.pause(); };
+audio.onplay =()=>playBtn.textContent='⏸';
+audio.onpause=()=>playBtn.textContent='▶';
+audio.onended=()=>playBtn.textContent='▶';
+audio.ontimeupdate=()=>{ if(audio.duration) seek.value=1000*audio.currentTime/audio.duration;
+  tiempo.textContent=fmtT(audio.currentTime)+' / '+fmtT(audio.duration||0); };
+seek.oninput=()=>{ if(audio.duration) audio.currentTime=seek.value/1000*audio.duration; };
+vol.oninput=()=>{ audio.volume=vol.value/100; }; audio.volume=0.9;
+function fmtT(s){ s=Math.floor(s||0); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+
+// ── canvas: tamaño robusto vía ResizeObserver + medidas CSS ──
+const specC=document.getElementById('spec'), bodeC=document.getElementById('bode');
+const sx=specC.getContext('2d'), bx=bodeC.getContext('2d');
+let SW={w:0,h:0}, BW={w:0,h:0};
+function fit(canvas){
+  const dpr=window.devicePixelRatio||1, w=canvas.clientWidth, h=canvas.clientHeight;
+  if(w===0||h===0) return null;
+  canvas.width=Math.round(w*dpr); canvas.height=Math.round(h*dpr);
+  canvas.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
+  return {w,h};
+}
+// Un ResizeObserver sobre cada canvas cubre TODO: resize de ventana (los canvas
+// son width:100% → cambia su tamaño) y el arrastre del alto. Robusto y sin
+// listeners de 'resize' sueltos, que era lo que se rompía antes.
+const ro=new ResizeObserver(entries=>{ for(const en of entries){
+  if(en.target===specC){ const s=fit(specC); if(s) SW=s; }
+  if(en.target===bodeC){ const b=fit(bodeC); if(b){ BW=b; drawBode(); } }
+}});
+ro.observe(specC); ro.observe(bodeC);
+
+// ── arrastrar para cambiar el alto ──
+document.querySelectorAll('.rz').forEach(h=>{
+  const canvas=document.getElementById(h.dataset.for);
+  h.addEventListener('pointerdown',e=>{
+    e.preventDefault(); h.setPointerCapture(e.pointerId);
+    const startY=e.clientY, startH=canvas.clientHeight;
+    const move=ev=>{ canvas.style.height=Math.max(120,Math.min(680,startH+(ev.clientY-startY)))+'px'; };
+    const up=()=>{ window.removeEventListener('pointermove',move); window.removeEventListener('pointerup',up); };
+    window.addEventListener('pointermove',move); window.addEventListener('pointerup',up);
+  });
+});
+
+// ── eje X log (compartido) ──
+const xOf=(f,w)=>(Math.log10(f)-L20)/LSPAN*w;
+const TICKS=[20,50,100,200,500,1000,2000,5000,10000,20000];
+const TICKLBL=['20','50','100','200','500','1k','2k','5k','10k','20k'];
+function ejeX(g,W,yBot){
+  g.strokeStyle='#20203a'; g.fillStyle='#556'; g.lineWidth=1; g.font='10px system-ui'; g.textAlign='center';
+  TICKS.forEach((f,i)=>{ const x=xOf(f,W.w);
+    g.beginPath(); g.moveTo(x,0); g.lineTo(x,yBot); g.stroke();
+    g.fillText(TICKLBL[i], Math.max(9,Math.min(W.w-9,x)), yBot+13); });
+}
+
+// ── eje Y: dB (log) o lineal (amplitud). En lineal se mapea 0..linMax para
+//    aprovechar todo el alto (la amplitud lineal es una fracción chica). ──
+function yMap(db,h,mnDb,mxDb,linMax){
+  if(yMode==='db') return h-(db-mnDb)/(mxDb-mnDb)*h;
+  const a=Math.pow(10,db/20);
+  return h-(a/linMax)*h;
+}
+
+// ── espectro ──
+const SPEC_MIN=-100, SPEC_MAX=-6;
+function curvaEspectro(g,buf,W,linMax,fill,stroke,glow){
+  const h=W.h-18, binHz=FS/(2*buf.length);
+  g.beginPath(); let started=false;
+  for(let px=0; px<=W.w; px++){
+    const f=FMIN*Math.pow(FMAX/FMIN, px/W.w), bin=Math.min(buf.length-1,Math.round(f/binHz));
+    let db=buf[bin]; if(db<SPEC_MIN) db=SPEC_MIN; if(db>SPEC_MAX) db=SPEC_MAX;
+    const y=yMap(db,h,SPEC_MIN,SPEC_MAX,linMax);
+    started?g.lineTo(px,y):(g.moveTo(px,y),started=true);
+  }
+  if(fill){ g.lineTo(W.w,h); g.lineTo(0,h); g.closePath(); g.fillStyle=fill; g.fill(); }
+  else{ if(glow){g.shadowColor=stroke; g.shadowBlur=8;} g.strokeStyle=stroke; g.lineWidth=1.6; g.stroke(); g.shadowBlur=0; }
+}
+function drawSpec(){
+  const W=SW; if(!W.w) return; const h=W.h-18;
+  sx.clearRect(0,0,W.w,W.h); ejeX(sx,W,h);
+  if(!anIn) return;
+  anIn.getFloatFrequencyData(inBuf); anOut.getFloatFrequencyData(specBuf);
+  if(avgOn && !audio.paused){
+    for(let i=0;i<inBuf.length;i++){ let db=inBuf[i]; if(db<-140) db=-140; avgPow[i]+=Math.pow(10,db/10); }
+    avgN++;
+  }
+  if(avgN>0) for(let i=0;i<avgDbBuf.length;i++) avgDbBuf[i]=10*Math.log10(avgPow[i]/avgN+1e-20);
+
+  // Máximo HISTÓRICO del espectro: solo crece, nunca baja. Se reinicia al
+  // cargar otro mp3 (en cargar()). Ese máximo = 100% del eje en lineal.
+  {
+    const binHz=FS/(2*inBuf.length);
+    const bLo=Math.max(1,Math.floor(FMIN/binHz)), bHi=Math.min(inBuf.length-1,Math.ceil(FMAX/binHz));
+    let mx=0;
+    for(let b=bLo;b<=bHi;b++){
+      const ai=Math.pow(10,inBuf[b]/20); if(ai>mx) mx=ai;
+      const ao=Math.pow(10,specBuf[b]/20); if(ao>mx) mx=ao;
+    }
+    if(mx>specPeak) specPeak=mx;
+  }
+  const linMax = Math.max(specPeak, 1e-4);   // el máximo histórico llega justo al tope
+
+  if(showCurves.in){
+    curvaEspectro(sx,inBuf,W,linMax,'rgba(120,130,170,0.16)',null,false);
+    curvaEspectro(sx,inBuf,W,linMax,null,'rgba(120,130,170,0.45)',false);
+  }
+  if(showCurves.out){
+    curvaEspectro(sx,specBuf,W,linMax,'rgba(78,203,113,0.14)',null,false);
+    curvaEspectro(sx,specBuf,W,linMax,null,'#4ecb71',true);
+  }
+  if(showCurves.avg && avgN>0) curvaEspectro(sx,avgDbBuf,W,linMax,null,'#f0a020',true);
+}
+
+// ── bode ──
+// En lineal, tope = 1.05 (ganancia unitaria arriba): un filtro pasivo nunca
+// supera 0 dB, así que la mitad de arriba del rango en dB quedaba vacía.
+const BODE_MIN=-48, BODE_MAX=6, BODE_LINMAX=1.05;
+function drawBode(){
+  const W=BW; if(!W.w) return; const h=W.h-18;
+  bx.clearRect(0,0,W.w,W.h);
+  bx.strokeStyle='#20203a'; bx.fillStyle='#556'; bx.font='10px system-ui'; bx.textAlign='right';
+  const gy = (yMode==='db') ? [6,0,-12,-24,-36,-48] : [0,-3,-6,-12,-24];
+  gy.forEach(db=>{ const y=yMap(db,h,BODE_MIN,BODE_MAX,BODE_LINMAX);
+    if(y<-2||y>h+2) return;
+    bx.beginPath(); bx.moveTo(28,y); bx.lineTo(W.w,y); bx.stroke(); bx.fillText(db+'',25,y+3); });
+  ejeX(bx,W,h);
+  const y0=yMap(0,h,BODE_MIN,BODE_MAX,BODE_LINMAX);
+  bx.strokeStyle='#33334d'; bx.setLineDash([3,3]); bx.beginPath(); bx.moveTo(28,y0); bx.lineTo(W.w,y0); bx.stroke(); bx.setLineDash([]);
+  const activo=!bypass && filtros.length;
+  bx.beginPath();
+  for(let px=0; px<=W.w; px++){
+    const f=FMIN*Math.pow(FMAX/FMIN, px/W.w);
+    let db=magDb(f); if(db<BODE_MIN) db=BODE_MIN; if(db>BODE_MAX) db=BODE_MAX;
+    const y=yMap(db,h,BODE_MIN,BODE_MAX,BODE_LINMAX); px===0?bx.moveTo(px,y):bx.lineTo(px,y);
+  }
+  bx.strokeStyle=activo?'#4a9eff':'#445'; bx.lineWidth=activo?2:1.4;
+  if(activo){ bx.shadowColor='#4a9eff'; bx.shadowBlur=6; } bx.stroke(); bx.shadowBlur=0;
+  if(activo){ bx.fillStyle='#f0a020';
+    filtros.forEach(flt=>{ const x=xOf(flt.fc,W.w), y=yMap(-3.01,h,BODE_MIN,BODE_MAX,BODE_LINMAX);
+      bx.beginPath(); bx.arc(x,y,3,0,7); bx.fill(); }); }
+}
+
+// ── loop ──
+function loop(){ drawSpec(); requestAnimationFrame(loop); }
+requestAnimationFrame(()=>{ const s=fit(specC); if(s) SW=s; const b=fit(bodeC); if(b) BW=b; drawBode(); loop(); });
+</script>
+</body>
+</html>

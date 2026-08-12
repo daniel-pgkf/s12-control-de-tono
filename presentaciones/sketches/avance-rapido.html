@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Avance rápido — herramienta de desarrollo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0d0d1a; color: #aaa; font-family: monospace;
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center; height: 100vh;
+    }
+    canvas { display: block; }
+    #info { margin-top: 12px; font-size: 11px; opacity: .45; }
+  </style>
+</head>
+<body>
+<!--
+  Salta N frames de un sketch al instante, para inspeccionar su estado final
+  sin esperar la animación. Sirve también para capturas automatizadas: un
+  browser headless no hace avanzar el requestAnimationFrame de p5, así que
+  aquí se fuerza el avance con redraw() síncrono.
+
+  Uso:  avance-rapido.html?sketch=comparativa_energia&f=230
+-->
+<div id="escenario"></div>
+<div id="info"></div>
+
+<script src="../player/vendor/p5.min.js"></script>
+<script src="registro.js"></script>
+<script src="resistencias.js"></script>
+<script src="fluido_pelota.js"></script>
+<script src="energia_pasa.js"></script>
+<script src="energia_frena.js"></script>
+<script src="energia_configurable.js"></script>
+<script src="comparativa_energia.js"></script>
+<script src="canon_parabolico.js"></script>
+<script src="zonas_voltaje.js"></script>
+<script src="disparo_lineal.js"></script>
+<script src="divisor_voltaje.js"></script>
+<script>
+  const q = new URLSearchParams(location.search);
+  const id = q.get('sketch') || 'comparativa_energia';
+  const frames = parseInt(q.get('f') || '250', 10);
+
+  // Sub-pasos a consumir antes de avanzar los frames: las escenas que
+  // arrancan quietas (cañones) necesitan el ESPACIO para ponerse en marcha.
+  const pasos = parseInt(q.get('pasos') || '0', 10);
+
+  // Overrides de CONFIG en JSON: ?cfg={"TIPO_RESISTENCIA":"fuerte"}
+  let cfg = {};
+  try { cfg = JSON.parse(q.get('cfg') || '{}'); } catch (e) { console.warn('cfg inválido', e); }
+
+  const handle = montarSketch(id, document.getElementById('escenario'), { config: cfg });
+  document.getElementById('info').textContent =
+    `${id} · ${pasos} sub-pasos · frame ${frames}`;
+
+  // Pequeño retardo: p5 corre setup() de forma diferida tras el montaje.
+  setTimeout(() => {
+    handle.instancia.noLoop();
+    for (let i = 0; i < pasos; i++) handle.avanzarPaso();
+    // Teclas del sketch antes de avanzar frames: ?teclas=Space,KeyP,KeyE
+    for (const code of (q.get('teclas') || '').split(',').filter(Boolean)) {
+      handle.tecla(code);
+    }
+    for (let i = 0; i < frames; i++) handle.instancia.redraw();
+    // Segunda tanda de teclas y frames: ?teclas2=Space&f2=N
+    for (const code of (q.get('teclas2') || '').split(',').filter(Boolean)) {
+      handle.tecla(code);
+    }
+    const f2 = parseInt(q.get('f2') || '0', 10);
+    for (let i = 0; i < f2; i++) handle.instancia.redraw();
+  }, 120);
+</script>
+</body>
+</html>

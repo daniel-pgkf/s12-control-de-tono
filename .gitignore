@@ -1,0 +1,11 @@
+# Caché intermedia de Manim: SVGs de Tex, movimientos parciales y renders.
+# Se regenera con `manim -qh --media_dir circuitos/media ...`, así que no vale
+# la pena versionarla. Los .mp4 terminados sí van, en presentaciones/clips/.
+presentaciones/circuitos/media/
+
+__pycache__/
+*.pyc
+
+# Historial local del editor (VS Code Local History). Trae su propio .git
+# dentro, que como subdirectorio rompería el repositorio.
+.history/

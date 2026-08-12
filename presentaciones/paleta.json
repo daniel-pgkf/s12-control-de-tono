@@ -1,0 +1,26 @@
+{
+  "_comentario": "Fuente única de verdad del color del curso. La consumen paleta.js (player + sketches p5) y paleta.py (escenas Manim). Los valores salieron de los sketches de la analogía del aceite, que ya estaban afinados; Manim se adaptó a ellos para que el corte entre clip y sketch no se note.",
+
+  "fondo":        "#0d0d1a",
+  "fondo_suave":  "#141426",
+  "texto":        "#aaaaaa",
+  "texto_tenue":  "#6a6a80",
+
+  "energia":      "#ff5528",
+  "energia_alta": "#ffc896",
+  "aceite":       "#c8a032",
+  "aceite_vivo":  "#ffdc50",
+  "nodo":         "#78c8ff",
+
+  "resistencia":  "#c8a032",
+  "condensador":  "#78c8ff",
+  "fuente":       "#7ed957",
+  "cable":        "#9a9aae",
+  "alerta":       "#ff5028",
+
+  "_mapeo": {
+    "resistencia": "mismo ámbar del aceite: la R es lo que 'frena', igual que el bloque viscoso",
+    "condensador": "mismo azul de las zonas A/B",
+    "energia": "naranja de la pelota, reutilizado para señal/voltaje en las gráficas"
+  }
+}

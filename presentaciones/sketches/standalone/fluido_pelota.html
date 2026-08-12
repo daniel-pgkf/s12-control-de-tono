@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Fluido perturbado — S12 Demo</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0d0d1a;
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      height: 100vh; font-family: monospace; color: #aaa;
+    }
+    canvas { display: block; }
+    #hint { margin-top: 14px; font-size: 12px; opacity: 0.45; letter-spacing: 0.05em; }
+  </style>
+</head>
+<body>
+<div id="escenario"></div>
+<div id="hint">click para reiniciar</div>
+<script src="../../player/vendor/p5.min.js"></script>
+<script src="../registro.js"></script>
+<script src="../fluido_pelota.js"></script>
+<script>
+  montarSketch('fluido_pelota', document.getElementById('escenario'));
+</script>
+</body>
+</html>
