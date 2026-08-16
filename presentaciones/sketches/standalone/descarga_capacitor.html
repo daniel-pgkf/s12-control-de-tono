@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Descarga de un capacitor — C → R</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0d0d1a;
+      display: flex; flex-direction: column;
+      justify-content: center; align-items: center;
+      height: 100vh; font-family: monospace; color: #aaa;
+    }
+    canvas { display: block; }
+    #hint { margin-top: 14px; font-size: 12px; opacity: 0.45; letter-spacing: 0.05em; }
+  </style>
+</head>
+<body>
+<div id="escenario"></div>
+<div id="hint">menú: C resistencia · T capacitor · ESPACIO empezar (después, ESPACIO abre/cierra) · click reinicia</div>
+<script src="../../player/vendor/p5.min.js"></script>
+<script src="../registro.js"></script>
+<script src="../resistencias.js"></script>
+<script src="../descarga_capacitor.js"></script>
+<script>
+  const handle = montarSketch('descarga_capacitor', document.getElementById('escenario'));
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyR') { handle.reiniciar(); return; }
+    if (handle.tecla(e.code)) e.preventDefault();
+  });
+</script>
+</body>
+</html>
