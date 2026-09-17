@@ -11,11 +11,13 @@ S12/
 
 ## Qué es este proyecto
 
+**La idea de S12: enseñar electrónica a través de equipos de música** — efectos, pedales, amplificadores, guitarras. El dominio es el gear musical; los estudiantes además desarrollan sus propios efectos. S12 es un *programa* del que se derivan cursos, cada uno con su audiencia y su equipo de entrada.
+
 Dos componentes paralelos:
 
-1. **Curso universitario** de electrónica básica para primer semestre de ingeniería electrónica. Sin bases previas. Hilo conductor: perillas de tono de guitarra eléctrica (= filtro RC pasa-bajos). Temas: divisor de voltaje → ley de mallas → superposición → filtros RC → diagramas de Bode. Máx. 1.5h por sesión, 3–6 sesiones, cierra con proyecto integrador.
+1. **Los cursos.** El primero, **Control de Tono** (el que da nombre al repo), está dirigido a primer semestre de ingeniería electrónica, sin bases previas, y entra por la perilla de tono de la guitarra (= filtro RC pasa-bajos). Temas: divisor de voltaje → ley de mallas → superposición → filtros RC → diagramas de Bode. Máx. 1.5h por sesión, 3–6 sesiones, cierra con proyecto integrador. **La perilla es el diseño de ESTE curso, no el alcance del programa**: los siguientes entran por otros equipos (distorsión, etapas de ganancia, delay, fuentes de ampli) y apuntan a otras audiencias.
 
-2. **FRA (Frequency Response Analyzer)** — hardware que mide la respuesta en frecuencia de redes de 2 puertos (20Hz–20kHz). Dos modos: Modo Bode (genera diagrama de Bode del DUT) y Modo Pedal (señal de guitarra pasa en tiempo real por el DUT). Se conecta al PC para visualización.
+2. **FRA (Frequency Response Analyzer)** — el instrumento de caracterización del programa. Mide la respuesta en frecuencia de redes de 2 puertos (20Hz–20kHz), y su propósito es caracterizar efectos ya existentes y **los que desarrollan los alumnos**, y poder tocarlos con guitarra eléctrica. Dos modos: Modo Bode (diagrama de Bode del DUT) y Modo Pedal (la señal de guitarra pasa en tiempo real por el DUT). Se conecta al PC para visualización. Consecuencia de diseño: el DUT debe seguir siendo **genérico e intercambiable** — cualquier efecto de alumno debe poder entrar.
 
 ## Filosofía pedagógica
 
