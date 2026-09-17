@@ -9,3 +9,7 @@ __pycache__/
 # Historial local del editor (VS Code Local History). Trae su propio .git
 # dentro, que como subdirectorio rompería el repositorio.
 .history/
+
+# Locks de KiCad: los crea al abrir un archivo y los borra al cerrarlo. Si se
+# versionan, cada sesión de edición ensucia el status con basura transitoria.
+*.lck
