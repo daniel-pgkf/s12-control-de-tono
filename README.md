@@ -95,12 +95,6 @@ Se desconecta la guitarra y se excita el DUT con una señal generada internament
 
 La excitación es ruido blanco: como tiene espectro plano, golpea todas las frecuencias del rango a la vez y la respuesta completa se obtiene en una sola captura corta, en lugar de barrer frecuencia por frecuencia. La estimación usa el método de Welch y reporta la coherencia como indicador de confiabilidad, para saber en qué bandas la medida es de fiar. El procesamiento está validado en `FRA/codigos/ruido_blanco.ipynb`.
 
-### Estado del diseño
-
-El objetivo es un instrumento serio, no una maqueta: precisión suficiente para que la medida sea creíble en clase. La ruta es protoboard primero —para validar la cadena de señal— y PCB después.
-
-**La selección de componentes está sujeta a cambios hasta que la PCB se mande a fabricar.** Las decisiones vigentes y la lista de materiales viven en `FRA/` y en `compras/FRA_materiales.md`; este README describe el funcionamiento, que es lo que no cambia.
-
 ---
 
 ## Las presentaciones
@@ -260,12 +254,6 @@ The guitar signal passes live through the DUT and out the output jack, into a sp
 The guitar is disconnected and the DUT is excited with an internally generated signal. Comparing what goes in with what comes out yields the effect's complete Bode plot, automatically.
 
 The excitation is white noise: since its spectrum is flat, it hits every frequency in the range at once, so the full response comes from a single short capture instead of a frequency-by-frequency sweep. The estimate uses Welch's method and reports coherence as a confidence indicator, to tell which bands are trustworthy. The processing is validated in `FRA/codigos/ruido_blanco.ipynb`.
-
-### Design status
-
-The goal is a serious instrument, not a mock-up: accurate enough that the measurement is credible in a classroom. The path is breadboard first — to validate the signal chain — then PCB.
-
-**Component selection is subject to change until the PCB is sent to fabrication.** The current decisions and the bill of materials live in `FRA/` and `compras/FRA_materiales.md`; this README describes how it works, which is the part that doesn't change.
 
 ---
 
