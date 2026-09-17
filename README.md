@@ -1,3 +1,7 @@
+<a id="espanol"></a>
+
+**Español** · [English](#english)
+
 # S12 — Enseñar electrónica a través de equipos de música
 
 S12 es un proyecto para enseñar electrónica usando como material de estudio los **equipos de música**: efectos, pedales, amplificadores, guitarras. La premisa es que un pedal de distorsión, una perilla de tono o una etapa de ganancia no son ejemplos decorativos de la teoría de circuitos — son teoría de circuitos, en un objeto que el estudiante ya conoce, ya escucha y ya quiere entender.
@@ -76,27 +80,34 @@ De ahí sale una restricción de diseño que no es negociable: el DUT (*device u
 ### Arquitectura de hardware
 
 **Cadena de entrada**
+
 - Jack 1/4" → buffer de alta impedancia (~1 MΩ, NE5532) con pot de ganancia en panel → switch de modo (guitarra o excitación interna)
 
 **Slot DUT**
+
 - Conector modular. Acepta cualquier red de dos puertos: filtros RC, pedales, efectos de estudiantes, redes pasivas.
 
 **Captura: PCM1808 — un solo ADC estéreo, 24 bit, 96 kSps, I²S**
+
 - El canal L mide la señal **antes** del DUT; el canal R, **después**.
 - Al ser un único ADC estéreo, ambas medidas viajan en el mismo stream: la sincronía de muestra es inherente. Esto reemplaza el esquema original de dos ADCs separados, que obligaba a sincronizarlos entre sí.
 
 **Excitación: PCM5102A (DAC I²S)**
+
 - Genera el ruido blanco del modo Bode. Comparte el reloj I²S con el ADC, así que excitación y captura quedan sincronizadas.
 
 **Salida**
+
 - Buffer NE5532 → PAM8302 (clase D, 2.5 W) para parlante integrado → jack 1/4"
 
 **Microcontrolador: ESP32-S3 (N16R8 WROOM-1)**
+
 - Tiene FPU para la FFT, USB nativo, RAM suficiente y dos periféricos I²S. El C3, single-core y sin FPU, se queda corto.
 - Calcula la función de transferencia, controla el switch de modo, y maneja el footswitch y 6 botones programables.
 - Envía datos al PC vía USB para visualización.
 
 **Tierra virtual: TLE2426**
+
 - Rail splitter que da un punto medio estable a 2.5 V, para centrar el audio con alimentación única de 5 V por USB.
 
 ### Modos de operación
@@ -167,15 +178,15 @@ Para cualquier concepto del curso, la presentación sigue siempre el mismo orden
 
 ## Stack técnico
 
-| Herramienta | Uso |
-|---|---|
-| Python 3.12 + venv | Base del proyecto |
-| Manim CE v0.20.1 | Animaciones técnicas y matemáticas |
-| p5.js (vendorizado) | Simulaciones físicas interactivas en browser |
-| FFmpeg | Renderizado de video |
-| Jupyter | Documentación pedagógica y análisis de señal |
-| ESP32-S3 | Microcontrolador del FRA |
-| KiCad | PCB del FRA |
+| Herramienta         | Uso                                              |
+| ------------------- | ------------------------------------------------ |
+| Python 3.12 + venv  | Base del proyecto                                |
+| Manim CE v0.20.1    | Animaciones técnicas y matemáticas             |
+| p5.js (vendorizado) | Simulaciones físicas interactivas en browser    |
+| FFmpeg              | Renderizado de video                             |
+| Jupyter             | Documentación pedagógica y análisis de señal |
+| ESP32-S3            | Microcontrolador del FRA                         |
+| KiCad               | PCB del FRA                                      |
 
 ---
 
@@ -195,4 +206,218 @@ Para correr las presentaciones:
 cd presentaciones
 python servidor.py 8000
 # luego abrir http://127.0.0.1:8000/player/
+```
+
+<br>
+
+---
+
+<a id="english"></a>
+
+[Español](#espanol) · **English**
+
+# S12 — Teaching electronics through music gear
+
+S12 is a project for teaching electronics using **music gear** as the study material: effects, pedals, amplifiers, guitars. The premise is that a distortion pedal, a tone knob or a gain stage aren't decorative examples of circuit theory — they *are* circuit theory, embodied in an object the student already knows, already listens to, and already wants to understand.
+
+The project has two components that feed each other:
+
+- **The courses** — complete, reproducible teaching material, designed per audience.
+- **The FRA** — a frequency response analyzer, built from scratch, used to characterize both existing effects and the ones students build, and to play them through an electric guitar.
+
+---
+
+## The program and its courses
+
+S12 isn't a single course: it's a program that spawns courses, each with its own audience and its own entry-point piece of gear. What stays constant is the method — enter through a real piece of music gear, build intuition before the formula, and close the loop by measuring.
+
+### Course 1 — Tone Control
+
+**Audience:** first-semester electronic engineering students, with no prior background in electronics.
+
+**Entry-point gear:** the tone knob of an electric guitar.
+
+This first course is the one the repository is named after. Its entry point is the tone knob because it's arguably the most accessible non-trivial circuit there is: you turn it by hand and hear the result immediately.
+
+A tone knob is an RC low-pass filter. It's a potentiometer — turning it changes the resistance (R), which shifts the filter's cutoff frequency and alters the guitar's timbre. The capacitor is fixed. That everyday object contains, inside it, the same principles used to design audio filters, communication systems and signal processing circuits.
+
+**Topic progression:**
+
+```
+Voltage divider → Kirchhoff's voltage law → Superposition → RC filters → Bode plots
+```
+
+Each concept is introduced as a natural extension of the previous one. By the end, the tone knob stops being a mystery: the student knows exactly what changes when they turn it, and why that affects the sound.
+
+**Format:**
+
+- 1.5 hours per session, maximum
+- 3 to 6 sessions total
+- Closes with a capstone project where students build or modify an RC filter and hear the result in real time
+
+### Later courses
+
+The rest of the musical gear landscape is territory still to be covered: distortion and clipping, gain stages, delay, amplifier power supplies. Each one enters through its own piece of gear and targets its own audience. The tone knob course is **the design for first-semester students**, not the scope of the program.
+
+---
+
+## Teaching philosophy
+
+**Minimum math, maximum intuition.**
+
+The approach is the one Veritasium and 3Blue1Brown follow: show the effect before explaining it, build the intuition before formalizing it. Formulas arrive last, as a description of something already understood — not as the starting point.
+
+To get there, the material uses a system of physical analogies. Instead of defining voltage as electric potential difference, it's introduced as a property of space that makes a ball — the charge carrier — always roll from high to low. Instead of memorizing that a capacitor "blocks DC and passes AC", it's visualized as an elastic block that responds differently depending on how fast the signals arrive.
+
+These analogies are deliberately imperfect: they're tools for building intuition, not formal definitions. The goal is that when the student meets the real definition, they already have something concrete to anchor it to.
+
+One principle runs through all the material: resistance charges the carrier **energy**, not existence. The ball never disappears — if it runs out of energy it stops, but it's still there. That attacks the "current gets used up" misconception at its root.
+
+---
+
+## The FRA
+
+### What it is
+
+A **Frequency Response Analyzer** is an instrument that measures how a two-port network modifies a signal as a function of frequency. The output is a Bode plot: magnitude in dB and phase in degrees, plotted against frequency.
+
+This FRA covers 20 Hz to 20 kHz — the full audible spectrum.
+
+### Why it exists
+
+The FRA is the program's characterization instrument. You plug an effect into it — a commercial one, a homemade one, or **one developed by the students** — and it measures what that effect does to the signal. In pedal mode, that same effect can also be **played through an electric guitar** in real time.
+
+That's what closes the loop: the student builds an effect, measures it and sees its Bode plot, and then plays it. Without the FRA, a homemade effect stays at "sounds weird". With the FRA it becomes a characterized circuit.
+
+From this follows a non-negotiable design constraint: the DUT (device under test) must be **generic and swappable**. Any student's effect has to be able to go in, not just an RC network. The modular slot and the 1/4" jacks are part of the purpose, not a packaging detail.
+
+### Hardware architecture
+
+**Input chain**
+
+- 1/4" jack → high-impedance buffer (~1 MΩ, NE5532) with a panel gain pot → mode switch (guitar or internal excitation)
+
+**DUT slot**
+
+- Modular connector. Accepts any two-port network: RC filters, pedals, student effects, passive networks.
+
+**Capture: PCM1808 — a single stereo ADC, 24-bit, 96 kSps, I²S**
+
+- The L channel measures the signal **before** the DUT; the R channel, **after**.
+- Because it's one stereo ADC, both measurements travel in the same stream, so sample-level synchrony is inherent. This replaces the original two-separate-ADC scheme, which required synchronizing them against each other.
+
+**Excitation: PCM5102A (I²S DAC)**
+
+- Generates the white noise used in Bode mode. It shares the I²S clock with the ADC, so excitation and capture stay synchronized.
+
+**Output**
+
+- NE5532 buffer → PAM8302 (class D, 2.5 W) for the built-in speaker → 1/4" jack
+
+**Microcontroller: ESP32-S3 (N16R8 WROOM-1)**
+
+- It has an FPU for the FFT, native USB, enough RAM, and two I²S peripherals. The C3, single-core and FPU-less, falls short.
+- Computes the transfer function, drives the mode switch, and handles the footswitch and 6 programmable buttons.
+- Streams data to the PC over USB for visualization.
+
+**Virtual ground: TLE2426**
+
+- A rail splitter providing a stable 2.5 V midpoint, to center the audio on a single 5 V USB supply.
+
+### Operating modes
+
+**Pedal mode (footswitch ON)**
+
+The guitar signal comes in, passes through the DUT and leaves through the output jack. The ADC monitors input and output in real time, and the PC displays the spectrum before and after the DUT. The player hears the effect while watching its spectral fingerprint.
+
+**Bode mode (footswitch OFF)**
+
+The switch disconnects the guitar and connects the white noise generator. The noise passes through the DUT, the ADC captures both sides, and the estimate is:
+
+```
+H(f) = Gxy(f) / Gxx(f)
+
+where:
+  Gxy = input-output cross-spectrum   [complex]
+  Gxx = input auto-spectrum           [real]
+```
+
+Multiple windows are averaged (Welch's method) to reduce estimation noise. Coherence γ² acts as a per-frequency confidence indicator: low values flag bands where the measurement isn't trustworthy.
+
+The result is a complete Bode plot, generated automatically. The pipeline is validated in `FRA/codigos/ruido_blanco.ipynb`.
+
+### Excitation signal
+
+Digitally generated Gaussian white noise. The choice is deliberate:
+
+- Flat spectrum across the whole range → excites every frequency with equal energy
+- No need to sweep frequency by frequency, as a swept sine would
+- The full measurement fits in a single ~500 ms to 1 s capture
+
+500 ms is the recommended minimum for acceptable spectral flatness (standard deviation < 1.5 dB over the range of interest); 1 s gives reference quality. Since the excitation lives in firmware, moving to swept-sine or chirp later doesn't touch the hardware.
+
+### Quality target and fabrication
+
+The goal is a serious instrument: ±0.5 dB in magnitude, accurate phase, SNR > 70 dB. The fabrication path is breadboard first — to validate the signal chain — then PCB, in KiCad.
+
+The full BOM, with quantities, prices and links, is in `compras/FRA_materiales.md` (≈ US$200 excluding shipping).
+
+---
+
+## The presentations
+
+### General format
+
+The presentations aren't slides. They're continuous scenes with keyboard-driven checkpoints: the instructor advances when the group is ready, no faster and no slower. Several scenes are also **simulators** the instructor drives live — opening and closing the circuit, releasing charges, swapping the resistance, morphing the physical model into a schematic.
+
+Each session combines two kinds of animated content:
+
+**Manim CE (Python)** — mathematical and technical animations: waveforms, Bode plots being drawn, circuits with annotation arrows, transformations. Rendered to video.
+
+**p5.js (JavaScript)** — interactive physical simulations: the charge traveling down the conductor, the resistance's oil deforming as it passes, the voltage divider responding in real time. They run directly in the browser.
+
+A custom web player stitches the Manim clips and p5.js sketches into a single navigable sequence, and shares one palette across both worlds so the seam doesn't show.
+
+### Sequence for every concept
+
+For any concept in the course, the presentation always follows the same order:
+
+1. **Observable demonstration** — show the phenomenon before naming it
+2. **Animated physical analogy** — build intuition with the physical model
+3. **Transfer to the circuit** — map the analogy onto the real circuit
+4. **Formalization** — the formula arrives, already anchored to something concrete
+5. **Measurement** — verify it with the FRA
+
+---
+
+## Tech stack
+
+| Tool                | Used for                                     |
+| ------------------- | -------------------------------------------- |
+| Python 3.12 + venv  | Project base                                 |
+| Manim CE v0.20.1    | Technical and mathematical animations        |
+| p5.js (vendored)    | Interactive physical simulations in-browser  |
+| FFmpeg              | Video rendering                              |
+| Jupyter             | Teaching documentation and signal analysis   |
+| ESP32-S3            | FRA microcontroller                          |
+| KiCad               | FRA PCB                                      |
+
+---
+
+## Repository layout
+
+```
+control-de-tono/
+├── presentaciones/     # Manim animations, p5.js sketches, web player
+├── FRA/                # Hardware, ESP32 firmware, PC software
+├── compras/            # BOM and materials
+└── syllabus/           # Course content, teaching notebooks
+```
+
+To run the presentations:
+
+```bash
+cd presentaciones
+python servidor.py 8000
+# then open http://127.0.0.1:8000/player/
 ```
