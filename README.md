@@ -77,76 +77,29 @@ Eso es lo que cierra el ciclo: el estudiante construye un efecto, lo mide y le v
 
 De ahí sale una restricción de diseño que no es negociable: el DUT (*device under test*) tiene que ser **genérico e intercambiable**. Cualquier efecto de un estudiante debe poder entrar, no solo una red RC. El slot modular y los jacks de 1/4" son parte del propósito, no un detalle de empaque.
 
-### Arquitectura de hardware
+### Cómo funciona
 
-**Cadena de entrada**
+La señal entra por un jack, se acondiciona, y llega al slot donde está conectado el DUT. Lo que hace al FRA un instrumento de medida y no solo una caja de paso es que **mide los dos lados del DUT a la vez**: la señal tal como entra y la señal tal como sale. Comparar esas dos capturas es lo que da la respuesta en frecuencia.
 
-- Jack 1/4" → buffer de alta impedancia (~1 MΩ, NE5532) con pot de ganancia en panel → switch de modo (guitarra o excitación interna)
-
-**Slot DUT**
-
-- Conector modular. Acepta cualquier red de dos puertos: filtros RC, pedales, efectos de estudiantes, redes pasivas.
-
-**Captura: PCM1808 — un solo ADC estéreo, 24 bit, 96 kSps, I²S**
-
-- El canal L mide la señal **antes** del DUT; el canal R, **después**.
-- Al ser un único ADC estéreo, ambas medidas viajan en el mismo stream: la sincronía de muestra es inherente. Esto reemplaza el esquema original de dos ADCs separados, que obligaba a sincronizarlos entre sí.
-
-**Excitación: PCM5102A (DAC I²S)**
-
-- Genera el ruido blanco del modo Bode. Comparte el reloj I²S con el ADC, así que excitación y captura quedan sincronizadas.
-
-**Salida**
-
-- Buffer NE5532 → PAM8302 (clase D, 2.5 W) para parlante integrado → jack 1/4"
-
-**Microcontrolador: ESP32-S3 (N16R8 WROOM-1)**
-
-- Tiene FPU para la FFT, USB nativo, RAM suficiente y dos periféricos I²S. El C3, single-core y sin FPU, se queda corto.
-- Calcula la función de transferencia, controla el switch de modo, y maneja el footswitch y 6 botones programables.
-- Envía datos al PC vía USB para visualización.
-
-**Tierra virtual: TLE2426**
-
-- Rail splitter que da un punto medio estable a 2.5 V, para centrar el audio con alimentación única de 5 V por USB.
+Un microcontrolador se encarga de la captura, del cálculo y de enviar los datos al PC, donde se visualizan.
 
 ### Modos de operación
 
-**Modo Pedal (footswitch ON)**
+**Modo Pedal**
 
-La señal de guitarra entra, pasa por el DUT y sale por el jack de salida. El ADC monitorea entrada y salida en tiempo real, y el PC muestra el espectro antes y después del DUT. El músico escucha el efecto mientras ve su huella espectral.
+La señal de la guitarra pasa en vivo por el DUT y sale por el jack de salida, hacia un parlante o un amplificador. Mientras tanto se monitorean entrada y salida, así que el músico escucha el efecto y ve su huella espectral al mismo tiempo.
 
-**Modo Bode (footswitch OFF)**
+**Modo Bode**
 
-El switch desconecta la guitarra y conecta el generador de ruido blanco. El ruido pasa por el DUT, el ADC captura ambos lados, y se estima:
+Se desconecta la guitarra y se excita el DUT con una señal generada internamente. Comparando lo que entra con lo que sale, se obtiene el diagrama de Bode completo del efecto, de forma automática.
 
-```
-H(f) = Gxy(f) / Gxx(f)
+La excitación es ruido blanco: como tiene espectro plano, golpea todas las frecuencias del rango a la vez y la respuesta completa se obtiene en una sola captura corta, en lugar de barrer frecuencia por frecuencia. La estimación usa el método de Welch y reporta la coherencia como indicador de confiabilidad, para saber en qué bandas la medida es de fiar. El procesamiento está validado en `FRA/codigos/ruido_blanco.ipynb`.
 
-donde:
-  Gxy = espectro cruzado entrada-salida   [complejo]
-  Gxx = auto-espectro de la entrada       [real]
-```
+### Estado del diseño
 
-Se promedian múltiples ventanas (método de Welch) para reducir el ruido de estimación. La coherencia γ² actúa como indicador de confiabilidad por frecuencia: valores bajos señalan bandas donde la medición no es de fiar.
+El objetivo es un instrumento serio, no una maqueta: precisión suficiente para que la medida sea creíble en clase. La ruta es protoboard primero —para validar la cadena de señal— y PCB después.
 
-El resultado es un diagrama de Bode completo, generado automáticamente. El pipeline está validado en `FRA/codigos/ruido_blanco.ipynb`.
-
-### Señal de excitación
-
-Se usa ruido blanco gaussiano generado digitalmente. La elección es intencional:
-
-- Espectro plano sobre todo el rango → excita todas las frecuencias con igual energía
-- No requiere barrer frecuencia por frecuencia, como el swept sine
-- La medición completa cabe en una sola captura de ~500 ms a 1 s
-
-500 ms es el mínimo recomendado para una planitud espectral aceptable (desviación estándar < 1.5 dB sobre el rango de interés); 1 s produce calidad de referencia. Al vivir la excitación en firmware, migrar a swept-sine o chirp más adelante no toca el hardware.
-
-### Meta de calidad y fabricación
-
-El objetivo es un instrumento serio: ±0.5 dB en magnitud, fase precisa, SNR > 70 dB. La ruta de fabricación es protoboard primero —para validar la cadena de señal— y PCB después, en KiCad.
-
-El BOM completo, con cantidades, precios y enlaces, está en `compras/FRA_materiales.md` (≈ US$200 sin envío).
+**La selección de componentes está sujeta a cambios hasta que la PCB se mande a fabricar.** Las decisiones vigentes y la lista de materiales viven en `FRA/` y en `compras/FRA_materiales.md`; este README describe el funcionamiento, que es lo que no cambia.
 
 ---
 
@@ -185,8 +138,7 @@ Para cualquier concepto del curso, la presentación sigue siempre el mismo orden
 | p5.js (vendorizado) | Simulaciones físicas interactivas en browser    |
 | FFmpeg              | Renderizado de video                             |
 | Jupyter             | Documentación pedagógica y análisis de señal |
-| ESP32-S3            | Microcontrolador del FRA                         |
-| KiCad               | PCB del FRA                                      |
+| KiCad               | Diseño de la PCB del FRA                        |
 
 ---
 
@@ -195,7 +147,7 @@ Para cualquier concepto del curso, la presentación sigue siempre el mismo orden
 ```
 control-de-tono/
 ├── presentaciones/     # Animaciones Manim, sketches p5.js, player web
-├── FRA/                # Hardware, firmware ESP32, software PC
+├── FRA/                # Hardware, firmware, software PC
 ├── compras/            # BOM y materiales
 └── syllabus/           # Contenido del curso, notebooks pedagógicos
 ```
@@ -291,76 +243,29 @@ That's what closes the loop: the student builds an effect, measures it and sees 
 
 From this follows a non-negotiable design constraint: the DUT (device under test) must be **generic and swappable**. Any student's effect has to be able to go in, not just an RC network. The modular slot and the 1/4" jacks are part of the purpose, not a packaging detail.
 
-### Hardware architecture
+### How it works
 
-**Input chain**
+The signal comes in through a jack, gets conditioned, and reaches the slot where the DUT is connected. What makes the FRA a measuring instrument rather than just a box the signal passes through is that it **measures both sides of the DUT at once**: the signal as it goes in and the signal as it comes out. Comparing those two captures is what yields the frequency response.
 
-- 1/4" jack → high-impedance buffer (~1 MΩ, NE5532) with a panel gain pot → mode switch (guitar or internal excitation)
-
-**DUT slot**
-
-- Modular connector. Accepts any two-port network: RC filters, pedals, student effects, passive networks.
-
-**Capture: PCM1808 — a single stereo ADC, 24-bit, 96 kSps, I²S**
-
-- The L channel measures the signal **before** the DUT; the R channel, **after**.
-- Because it's one stereo ADC, both measurements travel in the same stream, so sample-level synchrony is inherent. This replaces the original two-separate-ADC scheme, which required synchronizing them against each other.
-
-**Excitation: PCM5102A (I²S DAC)**
-
-- Generates the white noise used in Bode mode. It shares the I²S clock with the ADC, so excitation and capture stay synchronized.
-
-**Output**
-
-- NE5532 buffer → PAM8302 (class D, 2.5 W) for the built-in speaker → 1/4" jack
-
-**Microcontroller: ESP32-S3 (N16R8 WROOM-1)**
-
-- It has an FPU for the FFT, native USB, enough RAM, and two I²S peripherals. The C3, single-core and FPU-less, falls short.
-- Computes the transfer function, drives the mode switch, and handles the footswitch and 6 programmable buttons.
-- Streams data to the PC over USB for visualization.
-
-**Virtual ground: TLE2426**
-
-- A rail splitter providing a stable 2.5 V midpoint, to center the audio on a single 5 V USB supply.
+A microcontroller handles capture, computation, and streaming the data to the PC, where it's visualized.
 
 ### Operating modes
 
-**Pedal mode (footswitch ON)**
+**Pedal mode**
 
-The guitar signal comes in, passes through the DUT and leaves through the output jack. The ADC monitors input and output in real time, and the PC displays the spectrum before and after the DUT. The player hears the effect while watching its spectral fingerprint.
+The guitar signal passes live through the DUT and out the output jack, into a speaker or an amplifier. Meanwhile input and output are monitored, so the player hears the effect and sees its spectral fingerprint at the same time.
 
-**Bode mode (footswitch OFF)**
+**Bode mode**
 
-The switch disconnects the guitar and connects the white noise generator. The noise passes through the DUT, the ADC captures both sides, and the estimate is:
+The guitar is disconnected and the DUT is excited with an internally generated signal. Comparing what goes in with what comes out yields the effect's complete Bode plot, automatically.
 
-```
-H(f) = Gxy(f) / Gxx(f)
+The excitation is white noise: since its spectrum is flat, it hits every frequency in the range at once, so the full response comes from a single short capture instead of a frequency-by-frequency sweep. The estimate uses Welch's method and reports coherence as a confidence indicator, to tell which bands are trustworthy. The processing is validated in `FRA/codigos/ruido_blanco.ipynb`.
 
-where:
-  Gxy = input-output cross-spectrum   [complex]
-  Gxx = input auto-spectrum           [real]
-```
+### Design status
 
-Multiple windows are averaged (Welch's method) to reduce estimation noise. Coherence γ² acts as a per-frequency confidence indicator: low values flag bands where the measurement isn't trustworthy.
+The goal is a serious instrument, not a mock-up: accurate enough that the measurement is credible in a classroom. The path is breadboard first — to validate the signal chain — then PCB.
 
-The result is a complete Bode plot, generated automatically. The pipeline is validated in `FRA/codigos/ruido_blanco.ipynb`.
-
-### Excitation signal
-
-Digitally generated Gaussian white noise. The choice is deliberate:
-
-- Flat spectrum across the whole range → excites every frequency with equal energy
-- No need to sweep frequency by frequency, as a swept sine would
-- The full measurement fits in a single ~500 ms to 1 s capture
-
-500 ms is the recommended minimum for acceptable spectral flatness (standard deviation < 1.5 dB over the range of interest); 1 s gives reference quality. Since the excitation lives in firmware, moving to swept-sine or chirp later doesn't touch the hardware.
-
-### Quality target and fabrication
-
-The goal is a serious instrument: ±0.5 dB in magnitude, accurate phase, SNR > 70 dB. The fabrication path is breadboard first — to validate the signal chain — then PCB, in KiCad.
-
-The full BOM, with quantities, prices and links, is in `compras/FRA_materiales.md` (≈ US$200 excluding shipping).
+**Component selection is subject to change until the PCB is sent to fabrication.** The current decisions and the bill of materials live in `FRA/` and `compras/FRA_materiales.md`; this README describes how it works, which is the part that doesn't change.
 
 ---
 
@@ -399,8 +304,7 @@ For any concept in the course, the presentation always follows the same order:
 | p5.js (vendored)    | Interactive physical simulations in-browser  |
 | FFmpeg              | Video rendering                              |
 | Jupyter             | Teaching documentation and signal analysis   |
-| ESP32-S3            | FRA microcontroller                          |
-| KiCad               | FRA PCB                                      |
+| KiCad               | FRA PCB design                               |
 
 ---
 
@@ -409,7 +313,7 @@ For any concept in the course, the presentation always follows the same order:
 ```
 control-de-tono/
 ├── presentaciones/     # Manim animations, p5.js sketches, web player
-├── FRA/                # Hardware, ESP32 firmware, PC software
+├── FRA/                # Hardware, firmware, PC software
 ├── compras/            # BOM and materials
 └── syllabus/           # Course content, teaching notebooks
 ```
