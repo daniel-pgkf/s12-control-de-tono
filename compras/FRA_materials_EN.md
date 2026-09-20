@@ -43,5 +43,3 @@ Exchange rate used for the item priced in COP: 1 USD ≈ 3.445 COP (current rate
 | Mini breadboard, 170 points (CHANZON, 6 pcs) | Prototyping the input/output chains | 3 | US$7.99 | US$23.97 | https://www.amazon.com/dp/B07LF71ZTS |
 
 **Total: US$208.84** (excluding shipping; shipping varies depending on whether orders are grouped under the same Amazon seller)
-
-> The Taiss toggle switch listing states **US$10.74 shipping to Colombia, with no import charges**.
